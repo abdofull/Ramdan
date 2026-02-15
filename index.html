@@ -22,6 +22,16 @@
     <!-- Confetti Library -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function (OneSignal) {
+            await OneSignal.init({
+                appId: "4b4b7b2c-83d0-4474-89c3-df76b5062368",
+            });
+        });
+    </script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -387,6 +397,8 @@
             transition: width 0.5s ease;
         }
     </style>
+
+
 </head>
 
 <body class="min-h-screen flex flex-col items-center p-4">
@@ -663,7 +675,7 @@
                     </div>
                     <button onclick="retryLoadPage()"
                         class="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-xl text-sm border border-white/10 mt-4 transition-colors">
-                        إعادة المحاولة
+                        إعادة
                     </button>
                 </div>
 
@@ -782,6 +794,44 @@
                 class="w-full bg-gold hover:bg-gold-light text-black py-3 rounded-xl font-bold transition-colors">
                 الحمد لله
             </button>
+        </div>
+    </div>
+
+    <!-- ========== TAFSIR MODAL ========== -->
+    <div id="tafsir-modal" class="fixed inset-0 z-[60] hidden items-center justify-center modal-overlay p-4">
+        <div class="glass-card rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col scale-in relative">
+            <!-- Header -->
+            <div class="p-4 border-b border-white/10 flex justify-between items-center bg-midnight/50 rounded-t-2xl">
+                <div>
+                    <h3 class="font-bold text-lg font-reem text-gold">تفسير الآية</h3>
+                    <p class="text-xs text-gray-400 mt-1" id="tafsir-title">سورة ... آية ...</p>
+                </div>
+                <button onclick="closeTafsirModal()"
+                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <div id="tafsir-loading" class="flex flex-col items-center justify-center py-8">
+                    <div class="loader mb-4"></div>
+                    <p class="text-xs text-gray-400">جاري جلب التفسير...</p>
+                </div>
+
+                <div id="tafsir-content" class="hidden">
+                    <p class="text-lg font-amiri leading-loose text-gray-200 text-justify" id="tafsir-text"></p>
+                    <div class="mt-6 pt-4 border-t border-white/5 text-center">
+                        <span class="text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded">تفسير الجلالين</span>
+                    </div>
+                </div>
+
+                <div id="tafsir-error" class="hidden text-center py-8">
+                    <i class="fas fa-exclamation-circle text-red-400 text-3xl mb-3"></i>
+                    <p class="text-sm text-gray-300">نأسف، لم نتمكن من جلب التفسير.</p>
+                    <button onclick="retryTafsir()" class="mt-4 text-xs text-gold underline">إعادة المحاولة</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1245,6 +1295,10 @@
         // --- TEXT RENDERER LOGIC ---
 
         function loadPageText(pageNum) {
+            // Scroll to top
+            const scrollArea = document.getElementById('reader-scroll-area');
+            if (scrollArea) scrollArea.scrollTop = 0;
+
             // Update Header Info
             document.getElementById('reader-page-num').textContent = toArabicNum(pageNum);
             const surah = getSurahForPage(pageNum);
@@ -1330,7 +1384,7 @@
                 // Render Ayah
                 // We wrap it in a span for continuous flow
                 html += `
-                    <span class="inline leading-[2.6] hover:text-white transition-colors duration-200">
+                    <span class="inline leading-[2.6] hover:text-white transition-colors duration-200 cursor-pointer" onclick="openTafsir(${ayah.surah.number}, ${ayah.numberInSurah})">
                         ${ayah.text}
                         <span class="inline-flex items-center justify-center w-8 h-8 mx-1 bg-gold/5 border border-gold/20 rounded-full text-gold text-lg font-reem select-none align-middle" style="margin-top: -5px">
                             ${toArabicNum(ayah.numberInSurah)}
@@ -1559,6 +1613,69 @@
             } else {
                 icon.classList.remove('fa-stop');
                 icon.classList.add('fa-play');
+            }
+        }
+
+        // --- TAFSIR LOGIC ---
+        let currentTafsirParams = null;
+
+        function openTafsir(surahNum, ayahNum) {
+            currentTafsirParams = { surah: surahNum, ayah: ayahNum };
+
+            // Show Modal
+            const modal = document.getElementById('tafsir-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Reset UI
+            document.getElementById('tafsir-loading').classList.remove('hidden');
+            document.getElementById('tafsir-content').classList.add('hidden');
+            document.getElementById('tafsir-error').classList.add('hidden');
+            document.getElementById('tafsir-text').textContent = '';
+
+            // Set Header Title
+            const surahName = SURAHS.find(s => s[0] === surahNum)[1];
+            document.getElementById('tafsir-title').textContent = `سورة ${surahName} — آية ${toArabicNum(ayahNum)}`;
+
+            fetchTafsir(surahNum, ayahNum);
+        }
+
+        function closeTafsirModal() {
+            const modal = document.getElementById('tafsir-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function fetchTafsir(surah, ayah) {
+            // Using API.ALQURAN.CLOUD which is more reliable and supports HTTPS
+            const url = `https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/ar.jalalayn`;
+
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok');
+                    return r.json();
+                })
+                .then(json => {
+                    if (json.data && json.data.text) {
+                        document.getElementById('tafsir-loading').classList.add('hidden');
+                        document.getElementById('tafsir-content').classList.remove('hidden');
+                        document.getElementById('tafsir-text').textContent = json.data.text;
+                    } else {
+                        throw new Error('Invalid data format');
+                    }
+                })
+                .catch(err => {
+                    console.error('Tafsir fetch error:', err);
+                    document.getElementById('tafsir-loading').classList.add('hidden');
+                    document.getElementById('tafsir-error').classList.remove('hidden');
+                });
+        }
+
+        function retryTafsir() {
+            if (currentTafsirParams) {
+                document.getElementById('tafsir-error').classList.add('hidden');
+                document.getElementById('tafsir-loading').classList.remove('hidden');
+                fetchTafsir(currentTafsirParams.surah, currentTafsirParams.ayah);
             }
         }
 
