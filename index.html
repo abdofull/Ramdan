@@ -373,6 +373,33 @@
             margin-bottom: 1rem;
             animation: float 3s ease-in-out infinite;
         }
+
+        /* تنسيقات إضافية للبحث */
+        .surah-search-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            transition: all 0.2s;
+        }
+
+        .surah-search-input:focus {
+            border-color: var(--color-gold);
+            outline: none;
+        }
+
+        .surah-item {
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .surah-item:hover {
+            background: rgba(212, 175, 55, 0.1);
+            border-color: rgba(212, 175, 55, 0.4);
+        }
+
+        /* تنسيق صوت الإكمال (مخفي) */
+        #completion-sound {
+            display: none;
+        }
     </style>
 </head>
 
@@ -458,6 +485,12 @@
                         class="w-10 h-10 rounded-full glass-card flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors text-gray-400 hover:text-gold"
                         title="قصص قرآنية">
                         <i class="fas fa-book-open text-xl"></i>
+                    </button>
+                    <!-- أيقونة البحث عن سورة -->
+                    <button onclick="showSurahSearchModal()"
+                        class="w-10 h-10 rounded-full glass-card flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors text-gray-400 hover:text-gold"
+                        title="البحث عن سورة">
+                        <i class="fas fa-search text-xl"></i>
                     </button>
                     <button id="notification-bell" onclick="showSettingsModal()"
                         class="w-10 h-10 rounded-full glass-card flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors text-gray-400"
@@ -745,6 +778,20 @@
                     class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover-white"><i
                         class="fas fa-times text-sm"></i></button>
             </div>
+            <!-- قائمة اختيار المفسر -->
+            <div class="px-4 py-2 border-b border-white/10 bg-white/5">
+                <label class="block text-xs text-gray-400 mb-1">اختر المفسر:</label>
+                <select id="tafsir-selector"
+                    class="w-full bg-midnight/80 border border-gold/30 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-gold"
+                    onchange="changeTafsir()">
+                    <option value="ar.ibnkathir">ابن كثير</option>
+                    <option value="ar.saadi">السعدي</option>
+                    <option value="ar.tabari">الطبري</option>
+                    <option value="ar.qurtubi">القرطبي</option>
+                    <option value="ar.jalalayn">الجلالين</option>
+                    <option value="ar.muyassar">الميسر</option>
+                </select>
+            </div>
             <div class="p-6 overflow-y-auto flex-1">
                 <div id="tafsir-loading" class="flex flex-col items-center justify-center py-8">
                     <div class="loader mb-4"></div>
@@ -753,7 +800,8 @@
                 <div id="tafsir-content" class="hidden">
                     <p class="text-lg font-amiri leading-loose text-gray-200 text-justify" id="tafsir-text"></p>
                     <div class="mt-6 pt-4 border-t border-white/5 text-center"><span
-                            class="text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded">تفسير الجلالين</span></div>
+                            class="text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded" id="tafsir-source">تفسير ابن
+                            كثير</span></div>
                 </div>
                 <div id="tafsir-error" class="hidden text-center py-8"><i
                         class="fas fa-exclamation-circle text-red-400 text-3xl mb-3"></i>
@@ -774,12 +822,12 @@
                         class="fas fa-times text-sm"></i></button>
             </div>
             <div class="overflow-y-auto p-3 space-y-3" id="stories-list">
-                <!-- سيتم ملؤها ديناميكياً بالجافاسكريبت -->
+                <!-- سيتم ملؤها ديناميكياً -->
             </div>
         </div>
     </div>
 
-    <!-- INSTRUCTIONS MODAL (مرة واحدة) -->
+    <!-- INSTRUCTIONS MODAL (مرة واحدة) - تعديل لإضافة جولة تعريفية -->
     <div id="instructions-modal" class="fixed inset-0 z-[75] hidden items-center justify-center modal-overlay p-4">
         <div class="glass-card rounded-2xl w-full max-w-md p-6 scale-in">
             <div class="text-center mb-4">
@@ -803,12 +851,75 @@
                         <li>مواقيت الصلاة لمدينة غريان</li>
                         <li>قصص قرآنية ملهمة</li>
                         <li>تنبيهات يومية للورد</li>
+                        <li>البحث عن سور والانتقال إليها</li>
                     </ul>
                 </div>
             </div>
             <button onclick="closeInstructionsModal()"
                 class="mt-6 w-full bg-gold hover:bg-gold-light text-black py-3 rounded-xl font-bold transition-colors">تمَّ،
                 بارك الله فيك</button>
+        </div>
+    </div>
+
+    <!-- TUTORIAL MODAL (جولة تعريفية للأزرار) -->
+    <div id="tutorial-modal" class="fixed inset-0 z-[80] hidden items-center justify-center modal-overlay p-4">
+        <div class="glass-card rounded-2xl w-full max-w-md p-5 scale-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-lg font-reem text-gold"><i class="fas fa-graduation-cap ml-2"></i>جولة سريعة
+                </h3>
+                <button onclick="closeTutorial()" class="text-gray-400 hover:text-white"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div id="tutorial-step-content" class="min-h-[200px] flex flex-col items-center text-center">
+                <!-- يتم تعبئتها ديناميكياً -->
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <button onclick="prevTutorialStep()" id="tutorial-prev"
+                    class="px-4 py-2 bg-white/10 rounded-lg text-sm disabled:opacity-30">السابق</button>
+                <span id="tutorial-step-indicator" class="text-xs text-gold">1/6</span>
+                <button onclick="nextTutorialStep()" id="tutorial-next"
+                    class="px-4 py-2 bg-gold text-black rounded-lg text-sm font-bold">التالي</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DAILY HADITH MODAL (يظهر كل دخول) -->
+    <div id="daily-hadith-modal" class="fixed inset-0 z-[85] hidden items-center justify-center modal-overlay p-4">
+        <div class="glass-card rounded-2xl w-full max-w-sm p-6 scale-in relative">
+            <button onclick="closeDailyHadith()" class="absolute top-2 left-2 text-gray-400 hover:text-white"><i
+                    class="fas fa-times"></i></button>
+            <div class="text-center">
+                <i class="fas fa-mosque text-gold text-4xl mb-3"></i>
+                <h3 class="font-reem text-xl font-bold text-gold mb-3">حديث اليوم</h3>
+                <p class="text-gray-200 font-amiri text-lg leading-relaxed" id="daily-hadith-text">"خيركم من تعلم القرآن
+                    وعلمه"</p>
+                <p class="text-gray-400 text-xs mt-3" id="daily-hadith-source">رواه البخاري</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- عنصر الصوت للإكمال -->
+    <audio id="completion-sound" preload="auto">
+        <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg">
+        <!-- يمكنك تغيير الرابط إلى ملف صوتي محلي أو أي رابط آخر -->
+    </audio>
+
+    <!-- SEARCH SURAH MODAL -->
+    <div id="search-surah-modal" class="fixed inset-0 z-[90] hidden items-center justify-center modal-overlay p-4">
+        <div class="glass-card rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col scale-in">
+            <div class="p-4 border-b border-white/10 flex justify-between items-center bg-midnight/50 rounded-t-2xl">
+                <h3 class="font-bold text-lg font-reem text-gold"><i class="fas fa-search ml-2"></i>البحث عن سورة</h3>
+                <button onclick="closeSurahSearchModal()"
+                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white"><i
+                        class="fas fa-times text-sm"></i></button>
+            </div>
+            <div class="p-4">
+                <input type="text" id="surah-search-input" placeholder="اكتب اسم السورة..."
+                    class="surah-search-input w-full p-3 rounded-lg text-white text-right" oninput="filterSurahs()">
+            </div>
+            <div class="overflow-y-auto flex-1 p-2" id="surah-list-container">
+                <!-- سيتم تعبئتها ديناميكياً -->
+            </div>
         </div>
     </div>
 
@@ -851,14 +962,37 @@
             { title: 'أصحاب الأخدود', content: 'قصة المؤمنين الذين أوقدت لهم النار وألقوا فيها، لأنهم آمنوا بالله، فكانوا شهداء على الإيمان.' }
         ];
 
+        // أحاديث للعرض اليومي (يمكن زيادتها)
+        const DAILY_HADITHS = [
+            { text: '"خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ"', source: 'رواه البخاري' },
+            { text: '"مَنْ قَرَأَ حَرْفًا مِنْ كِتَابِ اللَّهِ فَلَهُ بِهِ حَسَنَةٌ، وَالحَسَنَةُ بِعَشْرِ أَمْثَالِهَا"', source: 'رواه الترمذي' },
+            { text: '"يُقَالُ لِصَاحِبِ الْقُرْآنِ: اقْرَأْ وَارْتَقِ وَرَتِّلْ كَمَا كُنْتَ تُرَتِّلُ فِي الدُّنْيَا، فَإِنَّ مَنْزِلَتَكَ عِنْدَ آخِرِ آيَةٍ تَقْرَؤُهَا"', source: 'رواه أبو داود والترمذي' },
+            { text: '"اقْرَءُوا الْقُرْآنَ فَإِنَّهُ يَأْتِي يَوْمَ الْقِيَامَةِ شَفِيعًا لِأَصْحَابِهِ"', source: 'رواه مسلم' },
+            { text: '"الْمَاهِرُ بِالْقُرْآنِ مَعَ السَّفَرَةِ الْكِرَامِ الْبَرَرَةِ، وَالَّذِي يَقْرَأُ الْقُرْآنَ وَيَتَتَعْتَعُ فِيهِ وَهُوَ عَلَيْهِ شَاقٌّ لَهُ أَجْرَانِ"', source: 'متفق عليه' },
+            { text: '"إِنَّ اللَّهَ يَرْفَعُ بِهَذَا الْكِتَابِ أَقْوَامًا وَيَضَعُ بِهِ آخَرِينَ"', source: 'رواه مسلم' }
+        ];
+
+        // خطوات الجولة التعريفية
+        const TUTORIAL_STEPS = [
+            { icon: 'fa-book-open', title: 'الورد اليومي', desc: 'هنا يظهر لك مقدار القراءة المطلوبة اليوم والصفحات المتبقية.' },
+            { icon: 'fa-chart-line', title: 'التقدم الكلي', desc: 'نسبة ما أنجزته من القرآن كاملاً مع عرض الصفحات المقروءة.' },
+            { icon: 'fa-bullseye', title: 'الإحصائيات', desc: 'الهدف اليومي، الأيام المتبقية، والجزء الذي تقرأه حالياً.' },
+            { icon: 'fa-layer-group', title: 'الأجزاء', desc: 'شبكة توضح تقدمك في كل جزء (لون ذهبي للكامل).' },
+            { icon: 'fa-star', title: 'حديث تحفيزي', desc: 'كل يوم حديث مختلف يذكرك بفضل القرآن.' },
+            { icon: 'fa-clock', title: 'مواقيت الصلاة', desc: 'أوقات الصلاة لمدينة غريان (ليبية).' },
+        ];
+
         // ========== STATE ==========
         let state = {
             goalType: null, dailyPagesGoal: 20, currentPage: 1, completedPages: 0,
             startDate: new Date().toISOString(), selectedReciter: 'ar.alafasy',
             notificationsEnabled: false, notificationTime: '20:00', setupComplete: false,
+            preferredTafsir: 'ar.ibnkathir',
+            tutorialSeen: false, // جديد
         };
         let audioQueue = [], currentAudioIndex = 0, audioPlayer = new Audio(), isPlaying = false, confirmCallback = null;
         let currentTafsirParams = null;
+        let tutorialStep = 0; // للجولة
 
         // ========== COOKIE HELPERS ==========
         function setCookie(name, value, days) {
@@ -893,9 +1027,12 @@
                     document.getElementById('app').style.opacity = '1';
                     if (state.setupComplete) {
                         showDashboard();
-                        // إظهار التعليمات مرة واحدة فقط إذا لم يشاهدها من قبل
-                        if (!getCookie('instructions_seen_v1')) {
-                            setTimeout(() => showInstructionsModal(), 1000);
+                        // إظهار التعليمات مرة واحدة فقط إذا لم يشاهدها من قبل (توجد instructions-modal قديم، نستبدله بالجولة)
+                        if (!state.tutorialSeen) {
+                            setTimeout(() => startTutorial(), 1000);
+                        } else {
+                            // بعد الجولة، نعرض حديث اليوم
+                            setTimeout(() => showDailyHadith(), 1500);
                         }
                     } else {
                         showOnboarding();
@@ -928,6 +1065,11 @@
                     document.getElementById('notification-bell').classList.remove('text-gold');
                     document.getElementById('notification-bell').classList.add('text-gray-400');
                 }
+            }
+            // تحديث اختيار المفسر في القائمة إذا كانت موجودة
+            const tafsirSelect = document.getElementById('tafsir-selector');
+            if (tafsirSelect) {
+                tafsirSelect.value = state.preferredTafsir || 'ar.ibnkathir';
             }
         }
 
@@ -1008,6 +1150,9 @@
                 wirdCard.style.borderColor = 'rgba(34,197,94,0.4)';
                 document.getElementById('wird-remaining').textContent = '✓';
                 document.getElementById('wird-remaining').style.color = '#22c55e';
+                // تشغيل صوت الإكمال وإظهار الإشعار
+                playCompletionSound();
+                showCompletionToast();
             } else {
                 wirdCard.style.borderColor = '';
                 document.getElementById('wird-remaining').style.color = '';
@@ -1041,6 +1186,33 @@
             document.getElementById('motivation-source').textContent = MOTIVATIONS[idx].source;
         }
 
+        // دالة تشغيل صوت الإكمال
+        function playCompletionSound() {
+            const sound = document.getElementById('completion-sound');
+            if (sound) {
+                sound.play().catch(() => { }); // تجاهل الأخطاء (قد لا يدعم المتصفح)
+            }
+        }
+
+        // دالة إظهار إشعار إتمام الورد مع حديث
+        function showCompletionToast() {
+            const randomHadith = DAILY_HADITHS[Math.floor(Math.random() * DAILY_HADITHS.length)];
+            const toast = document.createElement('div');
+            toast.className = 'toast pointer-events-auto bg-gold/20 border border-gold/50 rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg max-w-sm w-full';
+            toast.innerHTML = `
+                <i class="fas fa-trophy text-gold text-xl"></i>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-gold">أتممت وردك اليومي! 🎉</p>
+                    <p class="text-xs text-gray-300 mt-1">${randomHadith.text} ${randomHadith.source}</p>
+                </div>
+            `;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('toast-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
         // ========== ONBOARDING ==========
         function setGoal(type) {
             if (type === 'custom') {
@@ -1057,8 +1229,10 @@
             document.getElementById('onboarding').classList.add('opacity-0');
             setTimeout(() => {
                 showDashboard();
-                if (!getCookie('instructions_seen_v1')) {
-                    setTimeout(showInstructionsModal, 1000);
+                if (!state.tutorialSeen) {
+                    setTimeout(startTutorial, 1000);
+                } else {
+                    setTimeout(showDailyHadith, 1500);
                 }
             }, 300);
         }
@@ -1242,11 +1416,27 @@
             document.getElementById('tafsir-error').classList.add('hidden');
             const surahName = SURAHS.find(s => s[0] === surahNum)[1];
             document.getElementById('tafsir-title').textContent = `سورة ${surahName} — آية ${toArabicNum(ayahNum)}`;
-            fetchTafsir(surahNum, ayahNum);
+            const selector = document.getElementById('tafsir-selector');
+            selector.value = state.preferredTafsir || 'ar.ibnkathir';
+            fetchTafsir(surahNum, ayahNum, selector.value);
         }
         function closeTafsirModal() { document.getElementById('tafsir-modal').classList.add('hidden'); document.getElementById('tafsir-modal').classList.remove('flex'); }
-        function fetchTafsir(surah, ayah) {
-            fetch(`https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/ar.jalalayn`)
+        function changeTafsir() {
+            if (currentTafsirParams) {
+                const selector = document.getElementById('tafsir-selector');
+                const tafsirId = selector.value;
+                state.preferredTafsir = tafsirId;
+                saveState();
+                fetchTafsir(currentTafsirParams.surah, currentTafsirParams.ayah, tafsirId);
+            }
+        }
+        function fetchTafsir(surah, ayah, tafsirId) {
+            const sourceSpan = document.getElementById('tafsir-source');
+            const select = document.getElementById('tafsir-selector');
+            const selectedText = select.options[select.selectedIndex]?.text || 'تفسير';
+            sourceSpan.textContent = selectedText;
+
+            fetch(`https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/${tafsirId}`)
                 .then(r => r.json())
                 .then(json => {
                     if (json.data && json.data.text) {
@@ -1260,7 +1450,7 @@
                     document.getElementById('tafsir-error').classList.remove('hidden');
                 });
         }
-        function retryTafsir() { if (currentTafsirParams) fetchTafsir(currentTafsirParams.surah, currentTafsirParams.ayah); }
+        function retryTafsir() { if (currentTafsirParams) changeTafsir(); }
 
         // ========== STORIES MODAL ==========
         function showStoriesModal() {
@@ -1277,7 +1467,7 @@
         }
         function closeStoriesModal() { document.getElementById('stories-modal').classList.add('hidden'); document.getElementById('stories-modal').classList.remove('flex'); }
 
-        // ========== INSTRUCTIONS MODAL ==========
+        // ========== INSTRUCTIONS MODAL (القديمة) - سنبقيها لكن لن نستخدمها، سنستبدلها بالتوتوريال ==========
         function showInstructionsModal() {
             document.getElementById('instructions-modal').classList.remove('hidden');
             document.getElementById('instructions-modal').classList.add('flex');
@@ -1285,7 +1475,110 @@
         }
         function closeInstructionsModal() { document.getElementById('instructions-modal').classList.add('hidden'); document.getElementById('instructions-modal').classList.remove('flex'); }
 
-        // ========== PRAYER TIMES (غريان) ==========
+        // ========== TUTORIAL (جولة تعريفية) ==========
+        function startTutorial() {
+            tutorialStep = 0;
+            document.getElementById('tutorial-modal').classList.remove('hidden');
+            document.getElementById('tutorial-modal').classList.add('flex');
+            updateTutorialStep();
+        }
+        function closeTutorial() {
+            document.getElementById('tutorial-modal').classList.add('hidden');
+            document.getElementById('tutorial-modal').classList.remove('flex');
+            state.tutorialSeen = true;
+            saveState();
+            showDailyHadith(); // بعد الجولة نعرض حديث اليوم
+        }
+        function updateTutorialStep() {
+            const step = TUTORIAL_STEPS[tutorialStep];
+            const content = document.getElementById('tutorial-step-content');
+            content.innerHTML = `
+                <i class="fas ${step.icon} text-5xl text-gold mb-4"></i>
+                <h4 class="font-bold text-xl text-gold mb-2">${step.title}</h4>
+                <p class="text-gray-300">${step.desc}</p>
+            `;
+            document.getElementById('tutorial-step-indicator').textContent = `${tutorialStep + 1}/${TUTORIAL_STEPS.length}`;
+            document.getElementById('tutorial-prev').disabled = tutorialStep === 0;
+            if (tutorialStep === TUTORIAL_STEPS.length - 1) {
+                document.getElementById('tutorial-next').textContent = 'إنهاء';
+            } else {
+                document.getElementById('tutorial-next').textContent = 'التالي';
+            }
+        }
+        function prevTutorialStep() {
+            if (tutorialStep > 0) {
+                tutorialStep--;
+                updateTutorialStep();
+            }
+        }
+        function nextTutorialStep() {
+            if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+                tutorialStep++;
+                updateTutorialStep();
+            } else {
+                closeTutorial();
+            }
+        }
+
+        // ========== DAILY HADITH ==========
+        function showDailyHadith() {
+            const randomHadith = DAILY_HADITHS[Math.floor(Math.random() * DAILY_HADITHS.length)];
+            document.getElementById('daily-hadith-text').textContent = randomHadith.text;
+            document.getElementById('daily-hadith-source').textContent = randomHadith.source;
+            document.getElementById('daily-hadith-modal').classList.remove('hidden');
+            document.getElementById('daily-hadith-modal').classList.add('flex');
+            // إغلاق تلقائي بعد 7 ثوان
+            setTimeout(() => {
+                closeDailyHadith();
+            }, 7000);
+        }
+        function closeDailyHadith() {
+            document.getElementById('daily-hadith-modal').classList.add('hidden');
+            document.getElementById('daily-hadith-modal').classList.remove('flex');
+        }
+
+        // ========== SEARCH SURAH MODAL ==========
+        function showSurahSearchModal() {
+            const modal = document.getElementById('search-surah-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderSurahList(SURAHS);
+            document.getElementById('surah-search-input').value = '';
+        }
+        function closeSurahSearchModal() {
+            document.getElementById('search-surah-modal').classList.add('hidden');
+            document.getElementById('search-surah-modal').classList.remove('flex');
+        }
+        function renderSurahList(surahs) {
+            const container = document.getElementById('surah-list-container');
+            container.innerHTML = '';
+            surahs.forEach(s => {
+                const surahNum = s[0];
+                const surahName = s[1];
+                const startPage = s[2];
+                const item = document.createElement('div');
+                item.className = 'surah-item p-3 rounded-xl border border-white/5 mb-2 flex justify-between items-center';
+                item.innerHTML = `<span class="font-bold text-gold">${surahName}</span><span class="text-xs text-gray-400">صفحة ${toArabicNum(startPage)}</span>`;
+                item.addEventListener('click', () => {
+                    state.currentPage = startPage;
+                    saveState();
+                    closeSurahSearchModal();
+                    openReader();
+                });
+                container.appendChild(item);
+            });
+        }
+        function filterSurahs() {
+            const query = document.getElementById('surah-search-input').value.trim();
+            if (query === '') {
+                renderSurahList(SURAHS);
+                return;
+            }
+            const filtered = SURAHS.filter(s => s[1].includes(query));
+            renderSurahList(filtered);
+        }
+
+        // ========== PRAYER TIMES ==========
         function fetchPrayerTimes() {
             const today = new Date();
             const day = String(today.getDate()).padStart(2, '0');
@@ -1377,7 +1670,8 @@
                 state = {
                     goalType: null, dailyPagesGoal: 20, currentPage: 1, completedPages: 0,
                     startDate: new Date().toISOString(), selectedReciter: 'ar.alafasy',
-                    notificationsEnabled: false, notificationTime: '20:00', setupComplete: false
+                    notificationsEnabled: false, notificationTime: '20:00', setupComplete: false,
+                    preferredTafsir: 'ar.ibnkathir', tutorialSeen: false
                 };
                 showOnboarding();
                 showToast('تم إعادة تعيين البيانات', 'info');
