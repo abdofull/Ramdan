@@ -927,9 +927,181 @@
         // ========== CONSTANTS ==========
         const TOTAL_PAGES = 604;
         const TOTAL_JUZ = 30;
-        const COOKIE_KEY = 'ramadan_khatma_v5';
+        const STORAGE_KEY = 'ramdan_app_state_v1';
+
+        function saveStateToLocalStorage(state) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error('Failed to save state', e);
+            }
+        }
+
+        function loadStateFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                console.error('Failed to load state', e);
+                return null;
+            }
+        }
+
+        function cacheResource(key, data) {
+            const payload = { data, cachedAt: Date.now() };
+            try {
+                localStorage.setItem(key, JSON.stringify(payload));
+            } catch (e) { }
+        }
+
+        function loadCachedResource(key, maxAgeMs = 7 * 24 * 60 * 60 * 1000) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return null;
+                const obj = JSON.parse(raw);
+                if (Date.now() - obj.cachedAt > maxAgeMs) {
+                    localStorage.removeItem(key);
+                    return null;
+                }
+                return obj.data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        const DEFAULT_STATE = {
+            startDate: null, // ISO String
+            dailyPagesGoal: 1,
+            planLengthDays: 30,
+            completedPages: 0,
+            currentPage: 1,
+            totalPages: TOTAL_PAGES,
+            notificationsEnabled: false,
+            notificationTime: '08:00',
+            goalType: null,
+            selectedReciter: 'ar.alafasy',
+            setupComplete: false,
+            preferredTafsir: 'ar.ibnkathir',
+            tutorialSeen: false
+        };
+
         const JUZ_START_PAGES = [1, 22, 42, 62, 82, 102, 121, 142, 162, 182, 201, 222, 242, 262, 282, 302, 322, 342, 362, 382, 402, 422, 442, 462, 482, 502, 522, 542, 562, 582];
-        const SURAHS = [[1, "الفاتحة", 1], [2, "البقرة", 2], [3, "آل عمران", 50], [4, "النساء", 77], [5, "المائدة", 106], [6, "الأنعام", 128], [7, "الأعراف", 151], [8, "الأنفال", 177], [9, "التوبة", 187], [10, "يونس", 208], [11, "هود", 221], [12, "يوسف", 235], [13, "الرعد", 249], [14, "إبراهيم", 255], [15, "الحجر", 262], [16, "النحل", 267], [17, "الإسراء", 282], [18, "الكهف", 293], [19, "مريم", 305], [20, "طه", 312], [21, "الأنبياء", 322], [22, "الحج", 332], [23, "المؤمنون", 342], [24, "النور", 350], [25, "الفرقان", 359], [26, "الشعراء", 367], [27, "النمل", 377], [28, "القصص", 385], [29, "العنكبوت", 396], [30, "الروم", 404], [31, "لقمان", 411], [32, "السجدة", 415], [33, "الأحزاب", 418], [34, "سبأ", 428], [35, "فاطر", 434], [36, "يس", 440], [37, "الصافات", 446], [38, "ص", 453], [39, "الزمر", 458], [40, "غافر", 467], [41, "فصلت", 477], [42, "الشورى", 483], [43, "الزخرف", 489], [44, "الدخان", 496], [45, "الجاثية", 499], [46, "الأحقاف", 502], [47, "محمد", 507], [48, "الفتح", 511], [49, "الحجرات", 515], [50, "ق", 518], [51, "الذاريات", 520], [52, "الطور", 523], [53, "النجم", 526], [54, "القمر", 528], [55, "الرحمن", 531], [56, "الواقعة", 534], [57, "الحديد", 537], [58, "المجادلة", 542], [59, "الحشر", 545], [60, "الممتحنة", 549], [61, "الصف", 551], [62, "الجمعة", 553], [63, "المنافقون", 554], [64, "التغابن", 556], [65, "الطلاق", 558], [66, "التحريم", 560], [67, "الملك", 562], [68, "القلم", 564], [69, "الحاقة", 566], [70, "المعارج", 568], [71, "نوح", 570], [72, "الجن", 572], [73, "المزمل", 574], [74, "المدثر", 575], [75, "القيامة", 577], [76, "الإنسان", 578], [77, "المرسلات", 580], [78, "النبأ", 582], [79, "النازعات", 583], [80, "عبس", 585], [81, "التكوير", 586], [82, "الانفطار", 587], [83, "المطففين", 587], [84, "الانشقاق", 589], [85, "البروج", 590], [86, "الطارق", 591], [87, "الأعلى", 591], [88, "الغاشية", 592], [89, "الفجر", 593], [90, "البلد", 594], [91, "الشمس", 595], [92, "الليل", 595], [93, "الضحى", 596], [94, "الشرح", 596], [95, "التين", 597], [96, "العلق", 597], [97, "القدر", 598], [98, "البينة", 598], [99, "الزلزلة", 599], [100, "العاديات", 599], [101, "القارعة", 600], [102, "التكاثر", 600], [103, "العصر", 601], [104, "الهمزة", 601], [105, "الفيل", 601], [106, "قريش", 602], [107, "الماعون", 602], [108, "الكوثر", 602], [109, "الكافرون", 603], [110, "النصر", 603], [111, "المسد", 603], [112, "الإخلاص", 604], [113, "الفلق", 604], [114, "الناس", 604]];
+        const SURAHS = [
+            { number: 1, name: 'الفاتحة', startPage: 1, endPage: 1 },
+            { number: 2, name: 'البقرة', startPage: 2, endPage: 49 },
+            { number: 3, name: 'آل عمران', startPage: 50, endPage: 76 },
+            { number: 4, name: 'النساء', startPage: 77, endPage: 105 },
+            { number: 5, name: 'المائدة', startPage: 106, endPage: 127 },
+            { number: 6, name: 'الأنعام', startPage: 128, endPage: 150 },
+            { number: 7, name: 'الأعراف', startPage: 151, endPage: 176 },
+            { number: 8, name: 'الأنفال', startPage: 177, endPage: 186 },
+            { number: 9, name: 'التوبة', startPage: 187, endPage: 207 },
+            { number: 10, name: 'يونس', startPage: 208, endPage: 220 },
+            { number: 11, name: 'هود', startPage: 221, endPage: 234 },
+            { number: 12, name: 'يوسف', startPage: 235, endPage: 248 },
+            { number: 13, name: 'الرعد', startPage: 249, endPage: 254 },
+            { number: 14, name: 'إبراهيم', startPage: 255, endPage: 261 },
+            { number: 15, name: 'الحجر', startPage: 262, endPage: 266 },
+            { number: 16, name: 'النحل', startPage: 267, endPage: 281 },
+            { number: 17, name: 'الإسراء', startPage: 282, endPage: 292 },
+            { number: 18, name: 'الكهف', startPage: 293, endPage: 304 },
+            { number: 19, name: 'مريم', startPage: 305, endPage: 311 },
+            { number: 20, name: 'طه', startPage: 312, endPage: 321 },
+            { number: 21, name: 'الأنبياء', startPage: 322, endPage: 331 },
+            { number: 22, name: 'الحج', startPage: 332, endPage: 341 },
+            { number: 23, name: 'المؤمنون', startPage: 342, endPage: 349 },
+            { number: 24, name: 'النور', startPage: 350, endPage: 358 },
+            { number: 25, name: 'الفرقان', startPage: 359, endPage: 366 },
+            { number: 26, name: 'الشعراء', startPage: 367, endPage: 376 },
+            { number: 27, name: 'النمل', startPage: 377, endPage: 384 },
+            { number: 28, name: 'القصص', startPage: 385, endPage: 395 },
+            { number: 29, name: 'العنكبوت', startPage: 396, endPage: 403 },
+            { number: 30, name: 'الروم', startPage: 404, endPage: 410 },
+            { number: 31, name: 'لقمان', startPage: 411, endPage: 414 },
+            { number: 32, name: 'السجدة', startPage: 415, endPage: 417 },
+            { number: 33, name: 'الأحزاب', startPage: 418, endPage: 427 },
+            { number: 34, name: 'سبأ', startPage: 428, endPage: 433 },
+            { number: 35, name: 'فاطر', startPage: 434, endPage: 439 },
+            { number: 36, name: 'يس', startPage: 440, endPage: 445 },
+            { number: 37, name: 'الصافات', startPage: 446, endPage: 452 },
+            { number: 38, name: 'ص', startPage: 453, endPage: 457 },
+            { number: 39, name: 'الزمر', startPage: 458, endPage: 466 },
+            { number: 40, name: 'غافر', startPage: 467, endPage: 476 },
+            { number: 41, name: 'فصلت', startPage: 477, endPage: 482 },
+            { number: 42, name: 'الشورى', startPage: 483, endPage: 488 },
+            { number: 43, name: 'الزخرف', startPage: 489, endPage: 495 },
+            { number: 44, name: 'الدخان', startPage: 496, endPage: 498 },
+            { number: 45, name: 'الجاثية', startPage: 499, endPage: 501 },
+            { number: 46, name: 'الأحقاف', startPage: 502, endPage: 506 },
+            { number: 47, name: 'محمد', startPage: 507, endPage: 510 },
+            { number: 48, name: 'الفتح', startPage: 511, endPage: 514 },
+            { number: 49, name: 'الحجرات', startPage: 515, endPage: 517 },
+            { number: 50, name: 'ق', startPage: 518, endPage: 519 },
+            { number: 51, name: 'الذاريات', startPage: 520, endPage: 522 },
+            { number: 52, name: 'الطور', startPage: 523, endPage: 525 },
+            { number: 53, name: 'النجم', startPage: 526, endPage: 527 },
+            { number: 54, name: 'القمر', startPage: 528, endPage: 530 },
+            { number: 55, name: 'الرحمن', startPage: 531, endPage: 533 },
+            { number: 56, name: 'الواقعة', startPage: 534, endPage: 536 },
+            { number: 57, name: 'الحديد', startPage: 537, endPage: 541 },
+            { number: 58, name: 'المجادلة', startPage: 542, endPage: 544 },
+            { number: 59, name: 'الحشر', startPage: 545, endPage: 548 },
+            { number: 60, name: 'الممتحنة', startPage: 549, endPage: 550 },
+            { number: 61, name: 'الصف', startPage: 551, endPage: 552 },
+            { number: 62, name: 'الجمعة', startPage: 553, endPage: 553 },
+            { number: 63, name: 'المنافقون', startPage: 554, endPage: 555 },
+            { number: 64, name: 'التغابن', startPage: 556, endPage: 557 },
+            { number: 65, name: 'الطلاق', startPage: 558, endPage: 559 },
+            { number: 66, name: 'التحريم', startPage: 560, endPage: 561 },
+            { number: 67, name: 'الملك', startPage: 562, endPage: 563 },
+            { number: 68, name: 'القلم', startPage: 564, endPage: 565 },
+            { number: 69, name: 'الحاقة', startPage: 566, endPage: 567 },
+            { number: 70, name: 'المعارج', startPage: 568, endPage: 569 },
+            { number: 71, name: 'نوح', startPage: 570, endPage: 571 },
+            { number: 72, name: 'الجن', startPage: 572, endPage: 573 },
+            { number: 73, name: 'المزمل', startPage: 574, endPage: 574 },
+            { number: 74, name: 'المدثر', startPage: 575, endPage: 576 },
+            { number: 75, name: 'القيامة', startPage: 577, endPage: 577 },
+            { number: 76, name: 'الإنسان', startPage: 578, endPage: 579 },
+            { number: 77, name: 'المرسلات', startPage: 580, endPage: 581 },
+            { number: 78, name: 'النبأ', startPage: 582, endPage: 582 },
+            { number: 79, name: 'النازعات', startPage: 583, endPage: 584 },
+            { number: 80, name: 'عبس', startPage: 585, endPage: 585 },
+            { number: 81, name: 'التكوير', startPage: 586, endPage: 586 },
+            { number: 82, name: 'الانفطار', startPage: 587, endPage: 587 },
+            { number: 83, name: 'المطففين', startPage: 587, endPage: 588 },
+            { number: 84, name: 'الانشقاق', startPage: 589, endPage: 589 },
+            { number: 85, name: 'البروج', startPage: 590, endPage: 590 },
+            { number: 86, name: 'الطارق', startPage: 591, endPage: 591 },
+            { number: 87, name: 'الأعلى', startPage: 591, endPage: 592 },
+            { number: 88, name: 'الغاشية', startPage: 592, endPage: 593 },
+            { number: 89, name: 'الفجر', startPage: 593, endPage: 594 },
+            { number: 90, name: 'البلد', startPage: 594, endPage: 595 },
+            { number: 91, name: 'الشمس', startPage: 595, endPage: 595 },
+            { number: 92, name: 'الليل', startPage: 595, endPage: 597 },
+            { number: 93, name: 'الضحى', startPage: 596, endPage: 596 },
+            { number: 94, name: 'الشرح', startPage: 596, endPage: 597 },
+            { number: 95, name: 'التين', startPage: 597, endPage: 597 },
+            { number: 96, name: 'العلق', startPage: 597, endPage: 598 },
+            { number: 97, name: 'القدر', startPage: 598, endPage: 598 },
+            { number: 98, name: 'البينة', startPage: 598, endPage: 599 },
+            { number: 99, name: 'الزلزلة', startPage: 599, endPage: 599 },
+            { number: 100, name: 'العاديات', startPage: 599, endPage: 600 },
+            { number: 101, name: 'القارعة', startPage: 600, endPage: 600 },
+            { number: 102, name: 'التكاثر', startPage: 600, endPage: 601 },
+            { number: 103, name: 'العصر', startPage: 601, endPage: 601 },
+            { number: 104, name: 'الهمزة', startPage: 601, endPage: 601 },
+            { number: 105, name: 'الفيل', startPage: 601, endPage: 601 },
+            { number: 106, name: 'قريش', startPage: 602, endPage: 602 },
+            { number: 107, name: 'الماعون', startPage: 602, endPage: 602 },
+            { number: 108, name: 'الكوثر', startPage: 602, endPage: 602 },
+            { number: 109, name: 'الكافرون', startPage: 603, endPage: 603 },
+            { number: 110, name: 'النصر', startPage: 603, endPage: 603 },
+            { number: 111, name: 'المسد', startPage: 603, endPage: 603 },
+            { number: 112, name: 'الإخلاص', startPage: 604, endPage: 604 },
+            { number: 113, name: 'الفلق', startPage: 604, endPage: 604 },
+            { number: 114, name: 'الناس', startPage: 604, endPage: 604 }
+        ];
         const RECITERS = [
             { id: 'ar.alafasy', name: 'مشاري راشد العفاسي', nameEn: 'Mishary Alafasy' },
             { id: 'ar.abdulbasitmurattal', name: 'عبد الباسط عبد الصمد (مرتل)', nameEn: 'Abdul Basit (Murattal)' },
@@ -983,36 +1155,10 @@
         ];
 
         // ========== STATE ==========
-        let state = {
-            goalType: null, dailyPagesGoal: 20, currentPage: 1, completedPages: 0,
-            startDate: new Date().toISOString(), selectedReciter: 'ar.alafasy',
-            notificationsEnabled: false, notificationTime: '20:00', setupComplete: false,
-            preferredTafsir: 'ar.ibnkathir',
-            tutorialSeen: false, // جديد
-        };
+        let state = { ...DEFAULT_STATE };
         let audioQueue = [], currentAudioIndex = 0, audioPlayer = new Audio(), isPlaying = false, confirmCallback = null;
         let currentTafsirParams = null;
         let tutorialStep = 0; // للجولة
-
-        // ========== COOKIE HELPERS ==========
-        function setCookie(name, value, days) {
-            let expires = '';
-            if (days) {
-                const d = new Date(); d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-                expires = '; expires=' + d.toUTCString();
-            }
-            document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
-        }
-        function getCookie(name) {
-            const nameEQ = name + '=';
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i].trim();
-                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
-            }
-            return null;
-        }
-        function deleteCookie(name) { document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; }
 
         // ========== INIT ==========
         document.addEventListener('DOMContentLoaded', () => {
@@ -1043,12 +1189,15 @@
 
         function loadState() {
             try {
-                const stored = getCookie(COOKIE_KEY);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    state = { ...state, ...parsed };
+                const stored = loadStateFromLocalStorage();
+                if (stored && typeof stored === 'object') {
+                    state = { ...DEFAULT_STATE, ...stored };
+                } else {
+                    state = { ...DEFAULT_STATE };
                 }
-            } catch (e) { }
+            } catch (e) {
+                state = { ...DEFAULT_STATE };
+            }
             // تحديث واجهة التنبيهات
             const toggle = document.getElementById('notification-toggle');
             const timeContainer = document.getElementById('notification-time-container');
@@ -1069,11 +1218,15 @@
             // تحديث اختيار المفسر في القائمة إذا كانت موجودة
             const tafsirSelect = document.getElementById('tafsir-selector');
             if (tafsirSelect) {
-                tafsirSelect.value = state.preferredTafsir || 'ar.ibnkathir';
+                tafsirSelect.value = state.preferredTafsir || DEFAULT_STATE.preferredTafsir;
             }
         }
 
-        function saveState() { try { setCookie(COOKIE_KEY, JSON.stringify(state), 120); } catch (e) { } }
+        function saveState() {
+            try {
+                saveStateToLocalStorage(state);
+            } catch (e) { }
+        }
 
         // ========== UI ROUTING ==========
         function showOnboarding() {
@@ -1092,13 +1245,70 @@
             const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
             return String(num).replace(/\d/g, d => arabicDigits[d]);
         }
-        function getSurahForPage(page) {
-            let surah = SURAHS[0];
-            for (let i = 0; i < SURAHS.length; i++) {
-                if (SURAHS[i][2] <= page) surah = SURAHS[i];
-                else break;
+
+        function stripTime(d) {
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        }
+
+        function computeTodayRange(state, today = new Date()) {
+            const startDate = state.startDate ? new Date(state.startDate) : null;
+            const dailyPagesGoal = Number(state.dailyPagesGoal) || 1;
+            const totalPages = Number(state.totalPages) || TOTAL_PAGES;
+
+            if (!startDate) {
+                const fallbackStart = (Number(state.completedPages) || 0) + 1;
+                return {
+                    todayStartPage: Math.min(fallbackStart, totalPages),
+                    todayEndPage: Math.min(fallbackStart + dailyPagesGoal - 1, totalPages),
+                    daysPassed: 0
+                };
             }
-            return surah;
+
+            const msPerDay = 24 * 60 * 60 * 1000;
+            const daysPassed = Math.floor((stripTime(today) - stripTime(startDate)) / msPerDay);
+
+            const todayStartPage = Math.min(1 + daysPassed * dailyPagesGoal, totalPages);
+            const todayEndPage = Math.min(todayStartPage + dailyPagesGoal - 1, totalPages);
+
+            return { todayStartPage, todayEndPage, daysPassed };
+        }
+
+        function computeDaysLeft(state, daysPassed) {
+            const planLength = Number(state.planLengthDays) || 30;
+            return Math.max(0, planLength - Math.max(0, daysPassed));
+        }
+
+        function computeWird(state) {
+            const { todayStartPage, todayEndPage } = computeTodayRange(state);
+            const currentPage = Number(state.currentPage) || todayStartPage;
+            const totalToday = Math.max(0, todayEndPage - todayStartPage + 1);
+
+            let doneToday;
+            if (currentPage < todayStartPage) doneToday = 0;
+            else if (currentPage > todayEndPage) doneToday = totalToday;
+            else doneToday = currentPage - todayStartPage + 1;
+
+            const remaining = Math.max(0, totalToday - doneToday);
+            const percent = totalToday === 0 ? 100 : Math.round((doneToday / totalToday) * 100);
+
+            return { totalToday, doneToday, remaining, percent, todayStartPage, todayEndPage };
+        }
+
+        function isValidTimeHHMM(t) {
+            if (!t || typeof t !== 'string') return false;
+            if (!/^\d{2}:\d{2}$/.test(t)) return false;
+            const [h, m] = t.split(':').map(Number);
+            return h >= 0 && h < 24 && m >= 0 && m < 60;
+        }
+        function getSurahForPage(page) {
+            let surah = null;
+            for (let i = 0; i < SURAHS.length; i++) {
+                const s = SURAHS[i];
+                if (page >= s.startPage && page <= s.endPage) {
+                    surah = s; // نأخذ آخر سورة يغطي نطاقها هذه الصفحة
+                }
+            }
+            return surah || SURAHS[0];
         }
         function getJuzForPage(page) {
             let juz = 1;
@@ -1114,7 +1324,7 @@
                 document.getElementById('hijri-date').textContent = hijri;
             } catch (e) { document.getElementById('hijri-date').textContent = ''; }
 
-            const percent = Math.min(100, Math.round((state.completedPages / TOTAL_PAGES) * 100));
+            const percent = Math.min(100, Math.round(((Number(state.completedPages) || 0) / (Number(state.totalPages) || TOTAL_PAGES)) * 100));
             document.getElementById('progress-percent').textContent = toArabicNum(percent) + '٪';
             document.getElementById('pages-read-display').textContent = toArabicNum(state.completedPages);
             const circle = document.getElementById('progress-ring');
@@ -1123,30 +1333,29 @@
             circle.style.strokeDashoffset = offset;
 
             document.getElementById('daily-pages-stat').textContent = toArabicNum(state.dailyPagesGoal);
-            const daysPassed = Math.floor((new Date() - new Date(state.startDate)) / (1000 * 60 * 60 * 24));
-            const daysLeft = Math.max(0, 30 - daysPassed);
+            const { todayStartPage, todayEndPage, daysPassed } = computeTodayRange(state);
+            const daysLeft = computeDaysLeft(state, daysPassed);
             document.getElementById('days-left-stat').textContent = toArabicNum(daysLeft);
             const currentJuz = getJuzForPage(state.currentPage);
             document.getElementById('current-juz-stat').textContent = toArabicNum(currentJuz);
             document.getElementById('daily-task-text').textContent = 'قراءة الصفحة ' + toArabicNum(state.currentPage);
 
-            // Wird
-            const todayStartPage = state.completedPages + 1;
-            const todayEndPage = Math.min(TOTAL_PAGES, todayStartPage + state.dailyPagesGoal - 1);
-            const wirdDoneToday = Math.max(0, state.currentPage - todayStartPage);
-            const wirdRemaining = Math.max(0, todayEndPage - Math.max(state.currentPage, todayStartPage) + 1);
-            const wirdPercent = state.dailyPagesGoal > 0 ? Math.min(100, Math.round((wirdDoneToday / state.dailyPagesGoal) * 100)) : 0;
-            const startSurah = getSurahForPage(todayStartPage);
-            const endSurah = getSurahForPage(todayEndPage);
-            document.getElementById('wird-text').textContent = 'الصفحات ' + toArabicNum(todayStartPage) + ' - ' + toArabicNum(todayEndPage);
-            let surahInfo = 'من سورة ' + startSurah[1];
-            if (startSurah[0] !== endSurah[0]) surahInfo += ' إلى سورة ' + endSurah[1];
+            // Wird - الورد اليومي
+            const wirdInfo = computeWird(state);
+            const startSurah = getSurahForPage(wirdInfo.todayStartPage);
+            const endSurah = getSurahForPage(wirdInfo.todayEndPage);
+            document.getElementById('wird-text').textContent = 'الصفحات ' + toArabicNum(wirdInfo.todayStartPage) + ' - ' + toArabicNum(wirdInfo.todayEndPage);
+            let surahInfo = '';
+            if (startSurah && endSurah) {
+                surahInfo = 'من سورة ' + startSurah.name;
+                if (startSurah.number !== endSurah.number) surahInfo += ' إلى سورة ' + endSurah.name;
+            }
             document.getElementById('wird-surah-info').textContent = surahInfo;
-            document.getElementById('wird-remaining').textContent = toArabicNum(Math.max(0, wirdRemaining));
-            document.getElementById('wird-progress-bar').style.width = wirdPercent + '%';
-            document.getElementById('wird-progress-text').textContent = toArabicNum(wirdPercent) + '٪ من الورد اليومي';
+            document.getElementById('wird-remaining').textContent = toArabicNum(Math.max(0, wirdInfo.remaining));
+            document.getElementById('wird-progress-bar').style.width = wirdInfo.percent + '%';
+            document.getElementById('wird-progress-text').textContent = toArabicNum(wirdInfo.percent) + '٪ من الورد اليومي';
             const wirdCard = document.getElementById('wird-card');
-            if (wirdRemaining <= 0 && state.completedPages > 0) {
+            if (wirdInfo.remaining <= 0 && wirdInfo.totalToday > 0) {
                 wirdCard.style.borderColor = 'rgba(34,197,94,0.4)';
                 document.getElementById('wird-remaining').textContent = '✓';
                 document.getElementById('wird-remaining').style.color = '#22c55e';
@@ -1259,9 +1468,9 @@
         function loadPageText(pageNum) {
             const scrollArea = document.getElementById('reader-scroll-area');
             if (scrollArea) scrollArea.scrollTop = 0;
-            document.getElementById('reader-page-num').textContent = toArabicNum(pageNum);
-            const surah = getSurahForPage(pageNum);
-            document.getElementById('reader-surah-name').textContent = surah[1];
+                document.getElementById('reader-page-num').textContent = toArabicNum(pageNum);
+                const surah = getSurahForPage(pageNum);
+                document.getElementById('reader-surah-name').textContent = surah ? surah.name : '';
             const textArea = document.getElementById('quran-text-area');
             const loader = document.getElementById('text-loader');
             const errorMsg = document.getElementById('text-error');
@@ -1270,11 +1479,22 @@
             loader.classList.remove('opacity-0');
             errorMsg.classList.add('hidden');
             stopAudio();
+            const cacheKey = 'page_text_' + pageNum;
+            const cached = loadCachedResource(cacheKey);
+            if (cached && Array.isArray(cached) && cached.length) {
+                renderPageContent(cached);
+                loader.classList.add('hidden');
+                textArea.style.opacity = '1';
+                errorMsg.classList.add('hidden');
+                return;
+            }
+
             fetch('https://api.alquran.cloud/v1/page/' + pageNum + '/quran-uthmani')
                 .then(r => r.json())
                 .then(json => {
                     if (json.code === 200 && json.data && json.data.ayahs) {
                         renderPageContent(json.data.ayahs);
+                        cacheResource(cacheKey, json.data.ayahs);
                         loader.classList.add('opacity-0');
                         setTimeout(() => {
                             loader.classList.add('hidden');
@@ -1364,11 +1584,21 @@
             const reciterId = state.selectedReciter || 'ar.alafasy';
             const reciterName = RECITERS.find(r => r.id === reciterId);
             const displayName = reciterName ? reciterName.name : reciterId;
+            const cacheKey = 'page_audio_' + reciterId + '_' + pageNum;
+            const cachedList = loadCachedResource(cacheKey);
+            if (cachedList && Array.isArray(cachedList) && cachedList.length) {
+                audioQueue = cachedList.slice();
+                currentAudioIndex = 0;
+                playNextAyah(displayName);
+                return;
+            }
+
             fetch('https://api.alquran.cloud/v1/page/' + pageNum + '/' + reciterId)
                 .then(r => r.json())
                 .then(json => {
                     if (json.code === 200 && json.data && json.data.ayahs) {
                         audioQueue = json.data.ayahs.map(a => a.audio).filter(Boolean);
+                        cacheResource(cacheKey, audioQueue);
                         currentAudioIndex = 0;
                         if (audioQueue.length > 0) playNextAyah(displayName);
                         else { status.textContent = 'لا يوجد صوت متاح'; status.classList.add('text-red-400'); }
@@ -1376,9 +1606,16 @@
                 })
                 .catch(e => {
                     console.error('Audio fetch error:', e);
-                    status.textContent = 'الصوت غير متوفر';
-                    status.classList.add('text-red-400');
-                    setTimeout(() => { controls.classList.add('hidden'); isPlaying = false; toggleIcon(); }, 2500);
+                    const fallback = loadCachedResource(cacheKey);
+                    if (fallback && Array.isArray(fallback) && fallback.length) {
+                        audioQueue = fallback.slice();
+                        currentAudioIndex = 0;
+                        playNextAyah(displayName);
+                    } else {
+                        status.textContent = 'الصوت غير متوفر';
+                        status.classList.add('text-red-400');
+                        setTimeout(() => { controls.classList.add('hidden'); isPlaying = false; toggleIcon(); }, 2500);
+                    }
                 });
         }
         function playNextAyah(displayName) {
@@ -1414,7 +1651,8 @@
             document.getElementById('tafsir-loading').classList.remove('hidden');
             document.getElementById('tafsir-content').classList.add('hidden');
             document.getElementById('tafsir-error').classList.add('hidden');
-            const surahName = SURAHS.find(s => s[0] === surahNum)[1];
+            const surahObj = SURAHS.find(s => s.number === surahNum);
+            const surahName = surahObj ? surahObj.name : '';
             document.getElementById('tafsir-title').textContent = `سورة ${surahName} — آية ${toArabicNum(ayahNum)}`;
             const selector = document.getElementById('tafsir-selector');
             selector.value = state.preferredTafsir || 'ar.ibnkathir';
@@ -1471,7 +1709,6 @@
         function showInstructionsModal() {
             document.getElementById('instructions-modal').classList.remove('hidden');
             document.getElementById('instructions-modal').classList.add('flex');
-            setCookie('instructions_seen_v1', 'true', 365);
         }
         function closeInstructionsModal() { document.getElementById('instructions-modal').classList.add('hidden'); document.getElementById('instructions-modal').classList.remove('flex'); }
 
@@ -1553,9 +1790,9 @@
             const container = document.getElementById('surah-list-container');
             container.innerHTML = '';
             surahs.forEach(s => {
-                const surahNum = s[0];
-                const surahName = s[1];
-                const startPage = s[2];
+                const surahNum = s.number;
+                const surahName = s.name;
+                const startPage = s.startPage;
                 const item = document.createElement('div');
                 item.className = 'surah-item p-3 rounded-xl border border-white/5 mb-2 flex justify-between items-center';
                 item.innerHTML = `<span class="font-bold text-gold">${surahName}</span><span class="text-xs text-gray-400">صفحة ${toArabicNum(startPage)}</span>`;
@@ -1574,7 +1811,7 @@
                 renderSurahList(SURAHS);
                 return;
             }
-            const filtered = SURAHS.filter(s => s[1].includes(query));
+            const filtered = SURAHS.filter(s => s.name.includes(query));
             renderSurahList(filtered);
         }
 
@@ -1631,6 +1868,10 @@
             if (gotoPage && gotoPage >= 1 && gotoPage <= 604) state.currentPage = gotoPage;
             const notifEnabled = document.getElementById('notification-toggle').checked;
             const notifTime = document.getElementById('notification-time').value;
+            if (notifEnabled && !isValidTimeHHMM(notifTime)) {
+                showToast('الرجاء إدخال وقت صالح بالتنسيق 00:00', 'warning');
+                return;
+            }
             if (notifEnabled !== state.notificationsEnabled || (notifEnabled && notifTime !== state.notificationTime)) {
                 if (notifEnabled) { setupNotifications(notifTime); }
                 else {
@@ -1665,14 +1906,10 @@
         function confirmResetApp() {
             closeSettingsModal();
             showConfirmDialog('هل أنت متأكد من إعادة تعيين كل البيانات؟', () => {
-                deleteCookie(COOKIE_KEY);
-                deleteCookie('instructions_seen_v1');
-                state = {
-                    goalType: null, dailyPagesGoal: 20, currentPage: 1, completedPages: 0,
-                    startDate: new Date().toISOString(), selectedReciter: 'ar.alafasy',
-                    notificationsEnabled: false, notificationTime: '20:00', setupComplete: false,
-                    preferredTafsir: 'ar.ibnkathir', tutorialSeen: false
-                };
+                try {
+                    localStorage.removeItem(STORAGE_KEY);
+                } catch (e) { }
+                state = { ...DEFAULT_STATE };
                 showOnboarding();
                 showToast('تم إعادة تعيين البيانات', 'info');
             });
