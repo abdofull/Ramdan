@@ -19,8 +19,6 @@
         href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;800&family=Reem+Kufi:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
-    <!-- Confetti Library -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <!-- OneSignal -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -1504,10 +1502,6 @@
                         setTimeout(() => {
                             loader.classList.add('hidden');
                             textArea.style.opacity = '1';
-                            if (window.pendingConfetti) {
-                                triggerConfetti();
-                                window.pendingConfetti = false;
-                            }
                         }, 300);
                         if (pageNum < TOTAL_PAGES) fetch('https://api.alquran.cloud/v1/page/' + (pageNum + 1) + '/quran-uthmani').catch(() => { });
                     } else throw new Error('Invalid API');
@@ -1542,26 +1536,14 @@
             if (state.completedPages >= TOTAL_PAGES) setTimeout(showKhatmaModal, 1500);
             else {
                 showToast('تم إنهاء الصفحة ' + toArabicNum(state.currentPage) + ' — أحسنت!', 'success');
-                window.pendingConfetti = true;
             }
             setTimeout(nextPage, 800);
         }
         function showKhatmaModal() {
             document.getElementById('khatma-modal').classList.remove('hidden');
             document.getElementById('khatma-modal').classList.add('flex');
-            triggerConfetti();
-            setTimeout(triggerConfetti, 1000);
         }
         function closeKhatmaModal() { document.getElementById('khatma-modal').classList.add('hidden'); document.getElementById('khatma-modal').classList.remove('flex'); }
-        function triggerConfetti() {
-            if (typeof confetti === 'undefined') return;
-            var duration = 2000;
-            var end = Date.now() + duration;
-            (function frame() {
-                confetti({ particleCount: 30, spread: 100, origin: { x: Math.random(), y: Math.random() - 0.2 } });
-                if (Date.now() < end) setTimeout(frame, 200);
-            })();
-        }
 
         // ========== RECITER / AUDIO ==========
         function showReciterModal() {
